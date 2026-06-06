@@ -1,29 +1,4 @@
-# audit-log Specification
-
-## Purpose
-
-本 capability 定義系統的「稽核紀錄 (audit log)」：包含 audit log entity 結構與操作者快照 (snapshot)、透過 audit recording middleware 自動記錄所有 `/api/*` 請求（含登入相關事件、資料異動、敏感資料讀取）、append-only (僅新增) 且 best-effort (盡力而為) 的寫入語意、僅限 admin 存取的稽核查詢 API（列表查詢／篩選與詳情查詢），以及由 `<RequireAdmin>` 守護的前端 `/audit-logs` 頁面。
-
-## Requirements
-
-### Requirement: 稽核紀錄實體結構 (Audit Log Entity Schema)
-
-系統 SHALL 儲存 audit log (稽核日誌) 並具備下列欄位：`id` (uuid)、`createdAt` (timestamp，紀錄寫入時間)、`actorId` (操作者 employee id，可為 null 表示匿名／登入失敗)、`actorUsername` (操作者帳號快照 (snapshot)，可為 null)、`actorRole` (操作者角色快照 `ADMIN` / `USER`，可為 null)、`action` (語意化動作字串，SHALL 為受控詞彙 (controlled vocabulary) `AUDIT_ACTIONS` 中之一)、`method` (HTTP method)、`path` (請求路徑)、`targetType` (目標資源類型，如 `employee` / `vehicle`，可為 null)、`targetId` (目標資源 id，來自 path param，可為 null)、`outcome` (enum：`SUCCESS` / `FAILURE`)、`statusCode` (HTTP 回應碼，integer)、`ip` (來源 IP，可為 null)、`userAgent` (User-Agent header，可為 null)、`metadata` (JSON，額外結構化資料，可為 null)。
-
-`AUDIT_ACTIONS` SHALL 由 `@vms/shared` 匯出，前後端共用；`actorUsername` 與 `actorRole` 為寫入當下的快照，後續即使該 employee 被改名或調整角色，既有紀錄 SHALL NOT 隨之變動。
-
-#### Scenario: 紀錄包含操作者快照 (Record captures actor snapshot)
-
-- **WHEN** 一位已登入的 employee 觸發任一被記錄的操作
-- **THEN** 寫入的稽核紀錄 SHALL 包含當下的 `actorId`、`actorUsername`、`actorRole`
-- **AND** 之後修改該 employee 的 `username` 或 `role` SHALL NOT 改變該筆既有紀錄的快照值
-
-#### Scenario: outcome 依 HTTP 狀態碼推導 (Outcome derived from status code)
-
-- **WHEN** 寫入稽核紀錄時對應請求的 HTTP `statusCode` 為 `< 400`
-- **THEN** `outcome` SHALL 為 `SUCCESS`
-- **WHEN** 對應請求的 HTTP `statusCode` 為 `>= 400`
-- **THEN** `outcome` SHALL 為 `FAILURE`
+## ADDED Requirements
 
 ### Requirement: 動作語意化標籤 (Audit Action Semantic Labels)
 
@@ -39,6 +14,8 @@
 - **GIVEN** 動作 `auth.login.success` 對應標籤為「登入成功」
 - **WHEN** 前端渲染動作篩選下拉與表格「動作」欄
 - **THEN** 兩處對該動作 SHALL 皆顯示「登入成功」，而非原始字串 `auth.login.success`
+
+## MODIFIED Requirements
 
 ### Requirement: 自動記錄所有 API 請求 (Automatic Recording of API Requests)
 
@@ -79,77 +56,6 @@
 
 - **WHEN** admin 呼叫帶有 `password` 欄位的請求（例如 `POST /api/employees` 或 `POST /api/auth/login`）
 - **THEN** 寫入的稽核紀錄 `metadata` 參數快照中，`password` 欄位的值 SHALL 為 `"[REDACTED]"`，且 SHALL NOT 包含明文密碼
-
-### Requirement: 記錄登入相關事件 (Recording Authentication Events)
-
-系統 SHALL 記錄登入相關事件。登入成功 SHALL 記為 `action = "auth.login.success"`、`outcome = SUCCESS`，並以登入成功的 employee 填入 `actorId` / `actorUsername` / `actorRole`。登入失敗 SHALL 記為 `action = "auth.login.failure"`、`outcome = FAILURE`，`actorId` SHALL 為 null，`actorUsername` SHALL 為請求所提交的帳號（若有），且 `metadata` SHALL 包含失敗原因 `reason`（對應 `INVALID_CREDENTIALS` / `ACCOUNT_INACTIVE` / `ACCOUNT_LOCKED` 之一）。登出 SHALL 記為 `action = "auth.logout"`。
-
-#### Scenario: 登入成功被記錄 (Successful login is recorded)
-
-- **WHEN** 一位 employee 以正確帳密呼叫 `POST /api/auth/login`
-- **THEN** 系統 SHALL 寫入一筆 `action = "auth.login.success"`、`outcome = SUCCESS` 的紀錄
-- **AND** `actorId`、`actorUsername`、`actorRole` SHALL 對應該 employee
-
-#### Scenario: 登入失敗被記錄且不洩漏 actorId (Failed login is recorded without actorId)
-
-- **WHEN** 一個 `POST /api/auth/login` 請求以錯誤密碼或不存在的帳號失敗
-- **THEN** 系統 SHALL 寫入一筆 `action = "auth.login.failure"`、`outcome = FAILURE` 的紀錄
-- **AND** `actorId` SHALL 為 null，`actorUsername` SHALL 為請求提交的帳號
-- **AND** `metadata.reason` SHALL 標示失敗原因
-
-#### Scenario: 帳號鎖定時的失敗原因 (Failure reason when account is locked)
-
-- **GIVEN** 一個 employee 因連續登入失敗達門檻而被鎖定 (`lockedUntil` 未到期)
-- **WHEN** 該帳號於鎖定期間再次嘗試登入
-- **THEN** 系統 SHALL 寫入 `action = "auth.login.failure"` 的紀錄，且 `metadata.reason` SHALL 為 `ACCOUNT_LOCKED`
-
-### Requirement: 記錄資料異動 (Recording Data Mutations)
-
-系統 SHALL 記錄 employee 與 vehicle 的寫入操作 (POST / PATCH / DELETE)，`action` SHALL 為對應的語意化動作（例如 `employee.create`、`employee.update`、`employee.reset_password`、`vehicle.create`、`vehicle.update`、`vehicle.delete`），`targetType` SHALL 為資源類型，`targetId` SHALL 為 path 中的資源 id（建立操作可為 null）。被中介層擋下而回 405 的員工刪除嘗試 SHALL 記為 `action = "employee.delete.blocked"`、`outcome = FAILURE`。
-
-#### Scenario: 建立員工被記錄 (Creating an employee is recorded)
-
-- **WHEN** admin 成功呼叫 `POST /api/employees`
-- **THEN** 系統 SHALL 寫入一筆 `action = "employee.create"`、`outcome = SUCCESS`、`targetType = "employee"` 的紀錄
-- **AND** `actorId` SHALL 為該 admin
-
-#### Scenario: 更新車輛被記錄並帶 targetId (Updating a vehicle records targetId)
-
-- **WHEN** admin 成功呼叫 `PATCH /api/vehicles/:id`
-- **THEN** 系統 SHALL 寫入一筆 `action = "vehicle.update"`、`targetType = "vehicle"`、`targetId = :id` 的紀錄
-
-#### Scenario: 被擋下的刪除嘗試被記錄 (Blocked delete attempt is recorded)
-
-- **WHEN** 任一使用者對 `DELETE /api/employees/:id` 發出請求（系統回 405）
-- **THEN** 系統 SHALL 寫入一筆 `action = "employee.delete.blocked"`、`outcome = FAILURE`、`statusCode = 405` 的紀錄
-
-### Requirement: 記錄敏感資料讀取 (Recording Sensitive Reads)
-
-系統 SHALL 記錄對 employee、vehicle、dashboard 與 audit-log 資源的讀取 (GET)，`action` SHALL 為對應的讀取動作（例如 `employee.read.list`、`employee.read.detail`、`vehicle.read.list`、`vehicle.read.detail`、`dashboard.read`、`audit.read.list`、`audit.read.detail`）。
-
-#### Scenario: 列表讀取被記錄 (List read is recorded)
-
-- **WHEN** 一位已登入使用者呼叫 `GET /api/vehicles`
-- **THEN** 系統 SHALL 寫入一筆 `action = "vehicle.read.list"`、`outcome = SUCCESS` 的紀錄
-
-#### Scenario: 詳情讀取被記錄並帶 targetId (Detail read records targetId)
-
-- **WHEN** admin 呼叫 `GET /api/employees/:id`
-- **THEN** 系統 SHALL 寫入一筆 `action = "employee.read.detail"`、`targetType = "employee"`、`targetId = :id` 的紀錄
-
-### Requirement: 稽核查詢 API 僅限 admin 存取 (Admin-Only Access to Audit Queries)
-
-所有稽核查詢 endpoint (`/api/audit-logs*`) SHALL 要求請求者具有 `role = ADMIN`；非 admin 請求 SHALL 收到 HTTP 403；未登入請求 SHALL 收到 HTTP 401。
-
-#### Scenario: 未登入請求 (Unauthenticated request)
-
-- **WHEN** 對 `/api/audit-logs*` 的請求未帶有有效 auth cookie
-- **THEN** response SHALL 為 HTTP 401，body SHALL 為 `{ error: { code: "UNAUTHENTICATED", message } }`
-
-#### Scenario: user 嘗試查詢稽核紀錄 (User attempts to query audit logs)
-
-- **WHEN** 一位 `role = USER` 的使用者呼叫 `GET /api/audit-logs`
-- **THEN** response SHALL 為 HTTP 403，body SHALL 為 `{ error: { code: "FORBIDDEN", message } }`
 
 ### Requirement: 稽核紀錄列表查詢與篩選 (Audit Log List Query and Filtering)
 
@@ -196,20 +102,6 @@
 
 - **WHEN** admin 呼叫 `GET /api/audit-logs?pageSize=999`
 - **THEN** response SHALL 為 HTTP 400，body SHALL 為 `{ error: { code: "VALIDATION_ERROR", message, details } }`
-
-### Requirement: 稽核紀錄詳情查詢 (Audit Log Detail Query)
-
-`GET /api/audit-logs/:id` SHALL 回傳單筆稽核紀錄的完整內容（含 `metadata`）。當 id 不存在時 SHALL 回 HTTP 404，body 為 `{ error: { code: "AUDIT_LOG_NOT_FOUND", message } }`。`AUDIT_LOG_NOT_FOUND` SHALL 先加入 `packages/shared/src/errors.ts` 的 `ApiErrorCode`。
-
-#### Scenario: 取得存在的稽核紀錄 (Fetch existing record)
-
-- **WHEN** admin 以存在的 id 呼叫 `GET /api/audit-logs/:id`
-- **THEN** response SHALL 為 HTTP 200，body SHALL 為該筆紀錄的完整欄位（含 `metadata`）
-
-#### Scenario: 取得不存在的稽核紀錄 (Fetch missing record)
-
-- **WHEN** admin 以不存在的 id 呼叫 `GET /api/audit-logs/:id`
-- **THEN** response SHALL 為 HTTP 404，body SHALL 為 `{ error: { code: "AUDIT_LOG_NOT_FOUND", message } }`
 
 ### Requirement: 前端稽核紀錄頁面 (Frontend Audit Log Page)
 

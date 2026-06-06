@@ -141,6 +141,64 @@ describe("audit-logs query API", () => {
     }
   });
 
+  test("filter by multiple specific actions (comma-separated)", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    await makeAuditLog({ action: "auth.login.success", outcome: "SUCCESS" });
+    await makeAuditLog({ action: "vehicle.update", outcome: "SUCCESS" });
+    await makeAuditLog({ action: "employee.create", outcome: "SUCCESS" });
+    const session = await loginAs(app, "admin1");
+    const res = await request(app)
+      .get("/api/audit-logs?action=auth.login.success,vehicle.update")
+      .set("Cookie", session.cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.items.length).toBeGreaterThanOrEqual(2);
+    for (const item of res.body.items) {
+      expect(["auth.login.success", "vehicle.update"]).toContain(item.action);
+    }
+    const actions = res.body.items.map((i: { action: string }) => i.action);
+    expect(actions).not.toContain("employee.create");
+  });
+
+  test("filter by multiple actor keywords (comma-separated)", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    await makeAuditLog({ actorUsername: "alice" });
+    await makeAuditLog({ actorUsername: "bob" });
+    await makeAuditLog({ actorUsername: "carol" });
+    const session = await loginAs(app, "admin1");
+    const res = await request(app)
+      .get("/api/audit-logs?search=alice,bob")
+      .set("Cookie", session.cookies);
+    expect(res.status).toBe(200);
+    const names = res.body.items.map((i: { actorUsername: string }) => i.actorUsername);
+    expect(names).toEqual(expect.arrayContaining(["alice", "bob"]));
+    expect(names).not.toContain("carol");
+  });
+
+  test("accepts multiple outcome values without validation error", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    await makeAuditLog({ action: "vehicle.read.list", outcome: "SUCCESS", statusCode: 200 });
+    await makeAuditLog({ action: "auth.login.failure", outcome: "FAILURE", statusCode: 401 });
+    const session = await loginAs(app, "admin1");
+    const res = await request(app)
+      .get("/api/audit-logs?outcome=SUCCESS,FAILURE")
+      .set("Cookie", session.cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.error).toBeUndefined();
+    for (const item of res.body.items) {
+      expect(["SUCCESS", "FAILURE"]).toContain(item.outcome);
+    }
+  });
+
+  test("invalid outcome value -> 400", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    const session = await loginAs(app, "admin1");
+    const res = await request(app)
+      .get("/api/audit-logs?outcome=BOGUS")
+      .set("Cookie", session.cookies);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   test("invalid pageSize -> 400", async () => {
     await makeEmployee({ role: "ADMIN", username: "admin1" });
     const session = await loginAs(app, "admin1");

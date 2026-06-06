@@ -100,8 +100,8 @@ function useDebounced<T>(value: T, ms = 300): T {
   return v;
 }
 
-// 抓全部員工（含 INACTIVE）作為 owner 名稱查找表，讓離職員工的車也能顯示姓名；
-// 指派 owner 的下拉則只取 ACTIVE（見 VehicleSheet），與 API 的 assertActiveOwner 一致。
+// 員工清單（含 INACTIVE）供「指派 owner」下拉使用，下拉只取 ACTIVE（見 VehicleSheet），與 API 的 assertActiveOwner 一致。
+// owner 姓名顯示改由 /vehicles 後端 join 帶回（含 status 判斷是否離職），不再依賴此清單。
 function useEmployeesLookup(enabled: boolean) {
   return useQuery({
     enabled,
@@ -365,7 +365,8 @@ function VehicleSheet({
       color: v.color as (typeof VEHICLE_COLORS)[number],
       status: v.status,
       mileage: v.mileage,
-      purchasedAt: new Date(v.purchasedAt),
+      // date input 需要 YYYY-MM-DD 字串才能正確回填；提交時由 z.coerce.date() 轉回 Date。
+      purchasedAt: v.purchasedAt.slice(0, 10) as unknown as Date,
       ownerId: v.ownerId ?? undefined,
     };
   }, [editing, isNew]);

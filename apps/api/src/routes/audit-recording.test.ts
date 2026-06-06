@@ -144,6 +144,46 @@ describe("audit recording — sensitive reads", () => {
   });
 });
 
+describe("audit recording — request parameters", () => {
+  test("PATCH /api/vehicles/:id captures route param and body in metadata.params", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    const car = await makeVehicle();
+    const session = await loginAs(app, "admin1");
+    const res = await withAuth(
+      request(app).patch(`/api/vehicles/${car.id}`),
+      session,
+    ).send({ mileage: 2000 });
+    expect(res.status).toBe(200);
+    const rec = await waitForAuditLog(
+      (a) => a.action === "vehicle.update" && a.targetId === car.id,
+    );
+    const md = rec.metadata as {
+      params?: { params?: Record<string, unknown>; body?: Record<string, unknown> };
+    };
+    expect(md.params?.params?.id).toBe(car.id);
+    expect(md.params?.body?.mileage).toBe(2000);
+  });
+
+  test("password fields are redacted in metadata", async () => {
+    await makeEmployee({ role: "ADMIN", username: "admin1" });
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ username: "admin1", password: "wrong-password" });
+    expect(res.status).toBe(401);
+    const rec = await waitForAuditLog((a) => a.action === "auth.login.failure");
+    const md = rec.metadata as {
+      reason?: string;
+      params?: { body?: Record<string, unknown> };
+    };
+    expect(md.params?.body?.password).toBe("[REDACTED]");
+    expect(md.params?.body?.username).toBe("admin1");
+    // 既有 handler 設定的 reason 仍與參數快照合併保留。
+    expect(md.reason).toBe("INVALID_CREDENTIALS");
+    // 確保明文密碼未出現在序列化後的 metadata 中。
+    expect(JSON.stringify(rec.metadata)).not.toContain("wrong-password");
+  });
+});
+
 describe("audit recording — best-effort", () => {
   test("audit write failure does not affect main request", async () => {
     await makeEmployee({ role: "ADMIN", username: "admin1" });

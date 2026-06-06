@@ -36,10 +36,10 @@ export function AppShell() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-mesh animate-aurora opacity-90" />
-      <div className="relative flex min-h-screen">
-        <aside className="glass sticky top-0 z-20 flex h-screen w-64 flex-col gap-1 border-r p-4">
+      <div className="relative flex h-screen">
+        <aside className="glass z-20 flex h-full w-64 shrink-0 flex-col gap-1 border-r p-4">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
             <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-gradient text-white shadow-glow">
               <Car className="h-5 w-5" />
@@ -73,12 +73,8 @@ export function AppShell() {
             </div>
           </div>
         </aside>
-        <div className="flex flex-1 flex-col">
-          <header className="glass sticky top-0 z-10 flex h-14 items-center justify-end gap-3 border-b px-6 shadow-sm">
-            <span className="text-sm text-muted-foreground">
-              歡迎回來，
-              <span className="font-medium text-foreground">{user?.name}</span>
-            </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="glass z-10 flex h-14 shrink-0 items-center justify-end gap-3 border-b px-6 shadow-sm">
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="切換主題">
               {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
@@ -87,7 +83,7 @@ export function AppShell() {
               登出
             </Button>
           </header>
-          <main className="relative flex-1 p-6">
+          <main className="relative flex-1 overflow-y-auto p-6">
             <Outlet />
           </main>
         </div>

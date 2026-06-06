@@ -29,3 +29,9 @@ apps/web/.vite/
 
 # pgAdmin local data
 .pgadmin/
+
+# Playwright MCP 產物（快照 / console log / 截圖）
+.playwright-mcp/
+
+# PR 描述草稿（git-pr-description skill 產物）
+pr-review.md

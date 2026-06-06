@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/utils";
 import { VehiclesPage } from "./Vehicles";
 import { apiClient } from "@/lib/api";
@@ -62,5 +62,13 @@ describe("VehiclesPage", () => {
     expect(screen.queryByRole("button", { name: "新增車輛" })).toBeNull();
     expect(screen.queryByRole("button", { name: "編輯" })).toBeNull();
     expect(screen.queryByRole("button", { name: "刪除" })).toBeNull();
+  });
+
+  it("prefills purchase date when editing", async () => {
+    setUser("ADMIN");
+    render(renderWithProviders(<VehiclesPage />));
+    fireEvent.click(await screen.findByRole("button", { name: "編輯" }));
+    const dateInput = await screen.findByLabelText("購買日期");
+    expect(dateInput).toHaveValue("2024-06-01");
   });
 });
