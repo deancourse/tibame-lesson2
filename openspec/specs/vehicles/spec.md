@@ -144,6 +144,8 @@
 
 Web app SHALL 提供 `/vehicles` 路由，呈現具分頁與搜尋功能的 data table (資料表)。admin SHALL 看到「新增車輛」按鈕與每一列的「編輯」「刪除」操作；user SHALL NOT 看到任何 mutation (變更) 按鈕。建立／編輯車輛表單中，`make`、`color` 欄位 SHALL 為 dropdown (下拉選單)，選項分別來自 `@vms/shared` 的 `VEHICLE_MAKES` 與 `VEHICLE_COLORS`；`ownerId` 欄位 SHALL 為 dropdown，選項來自當前 ACTIVE 員工清單（含「未指派」對應 `null`）。列表「負責員工」欄 SHALL 顯示為「`姓名（工號）`」格式，而非 raw uuid。
 
+編輯既有車輛時，「購買日期」(`purchasedAt`) 欄位（`<input type="date">`）SHALL 以該車輛既有日期正確回填，顯示為 `YYYY-MM-DD`，SHALL NOT 顯示為空白。
+
 #### Scenario: admin 看到變更按鈕 (Admin sees mutation controls)
 
 - **WHEN** admin 進入 `/vehicles`
@@ -185,3 +187,9 @@ Web app SHALL 提供 `/vehicles` 路由，呈現具分頁與搜尋功能的 data
 - **WHEN** USER 角色登入並進入 `/vehicles`
 - **THEN** 前端 SHALL NOT 對 `/api/employees` 發送任何請求（避免 403）
 - **AND** 「負責員工」欄 SHALL 顯示登入者自身的姓名（取自 auth session）
+
+#### Scenario: 編輯車輛時購買日期正確回填 (Purchase date is prefilled when editing)
+
+- **GIVEN** vehicle V 的 `purchasedAt` 為 `2024-01-15`
+- **WHEN** admin 開啟 V 的「編輯車輛」表單
+- **THEN** 「購買日期」欄位 SHALL 顯示 `2024-01-15`，SHALL NOT 為空白

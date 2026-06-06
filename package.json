@@ -12,12 +12,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev --workspace apps/api\" \"npm run dev --workspace apps/web\"",
+    "dev": "concurrently --kill-others-on-fail -n api,web -c blue,magenta \"npm run dev --workspace apps/api\" \"npm run dev --workspace apps/web\"",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint . && npm run lint --workspaces --if-present",
     "lint:fix": "eslint . --fix",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest && npm run test --workspaces --if-present",
-    "test:root": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test --workspace apps/api",
+    "test:web": "npm run test --workspace apps/web",
     "db:migrate": "npm run db:migrate --workspace apps/api",
     "db:reset": "npm run db:reset --workspace apps/api",
     "db:studio": "npm run db:studio --workspace apps/api",
@@ -25,20 +28,12 @@
     "seed:mock": "npm run seed:mock --workspace apps/api -- --yes",
     "prepare": "husky"
   },
-  "jest": {
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/apps/",
-      "/packages/"
-    ]
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.2",
     "eslint": "^10.4.0",
     "husky": "^9.0.0",
-    "jest": "^30.4.2",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2"
   }

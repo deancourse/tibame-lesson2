@@ -312,7 +312,8 @@ function EmployeeSheet({
           email: (editing as EmployeeRow).email,
           department: (editing as EmployeeRow).department as (typeof DEPARTMENTS)[number],
           position: (editing as EmployeeRow).position as (typeof POSITIONS)[number],
-          hiredAt: new Date((editing as EmployeeRow).hiredAt),
+          // date input 需要 YYYY-MM-DD 字串才能正確回填；提交時由 z.coerce.date() 轉回 Date。
+          hiredAt: (editing as EmployeeRow).hiredAt.slice(0, 10) as unknown as Date,
           phone: (editing as EmployeeRow).phone,
           username: (editing as EmployeeRow).username,
           role: (editing as EmployeeRow).role,

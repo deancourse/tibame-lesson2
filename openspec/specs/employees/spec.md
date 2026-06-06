@@ -129,6 +129,8 @@
 
 Web app SHALL 提供 `/employees` 路由，且 SHALL 僅供 admin 存取。非 admin 進入 `/employees` SHALL 被導回 `/`，且 SHALL NOT 看到頁面內容或觸發任何對 `/api/employees*` 的 API 呼叫。建立／編輯員工表單中，`department` 與 `position` 欄位 SHALL 為 dropdown (下拉選單)，選項分別來自 `@vms/shared` 的 `DEPARTMENTS` 與 `POSITIONS`；SHALL NOT 接受自由文字輸入。
 
+編輯既有員工時，「入職日期」(`hiredAt`) 欄位（`<input type="date">`）SHALL 以該員工既有日期正確回填，顯示為 `YYYY-MM-DD`，SHALL NOT 顯示為空白。
+
 #### Scenario: admin 進入頁面 (Admin renders the page)
 
 - **WHEN** admin 進入 `/employees`
@@ -155,3 +157,9 @@ Web app SHALL 提供 `/employees` 路由，且 SHALL 僅供 admin 存取。非 a
 - **GIVEN** 既有 employee 的 `department` 為不在 `DEPARTMENTS` 中的歷史值
 - **WHEN** admin 開啟其「編輯員工」表單
 - **THEN** `department` dropdown SHALL 顯示 placeholder 並要求重選；submit 時若仍為非詞彙值 SHALL 由前端 zod validation 擋下並顯示錯誤
+
+#### Scenario: 編輯員工時入職日期正確回填 (Hire date is prefilled when editing)
+
+- **GIVEN** employee E 的 `hiredAt` 為 `2023-09-01`
+- **WHEN** admin 開啟 E 的「編輯員工」表單
+- **THEN** 「入職日期」欄位 SHALL 顯示 `2023-09-01`，SHALL NOT 為空白

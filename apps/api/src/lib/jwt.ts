@@ -7,6 +7,7 @@ export interface JwtPayload {
   sub: string;
   role: Role;
   employeeId: string;
+  username: string;
 }
 
 export function signJwt(payload: JwtPayload): string {

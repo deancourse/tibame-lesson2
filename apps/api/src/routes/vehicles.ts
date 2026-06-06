@@ -34,7 +34,7 @@ vehiclesRouter.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
       skip: (q.page - 1) * q.pageSize,
       take: q.pageSize,
-      include: { owner: { select: { name: true, employeeNo: true } } },
+      include: { owner: { select: { name: true, employeeNo: true, status: true } } },
     }),
   ]);
   res.json({

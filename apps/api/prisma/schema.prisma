@@ -23,6 +23,11 @@ enum VehicleStatus {
   RETIRED
 }
 
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
 model Employee {
   id               String         @id @default(uuid())
   employeeNo       String         @unique
@@ -65,4 +70,27 @@ model Vehicle {
   @@index([status])
   @@index([ownerId])
   @@index([purchasedAt])
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  createdAt     DateTime     @default(now())
+  actorId       String?
+  actorUsername String?
+  actorRole     Role?
+  action        String
+  method        String
+  path          String
+  targetType    String?
+  targetId      String?
+  outcome       AuditOutcome
+  statusCode    Int
+  ip            String?
+  userAgent     String?
+  metadata      Json?
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([action])
+  @@index([outcome])
 }

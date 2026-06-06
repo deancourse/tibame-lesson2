@@ -106,10 +106,18 @@ async function main() {
     );
   }
 
-  console.log("seed:mock: 開始清理現有非 ADMIN 員工與全部車輛…");
+  // 冪等清理：只保留正式的 seed admin（由 SEED_ADMIN_USERNAME 指定，後備為
+  // employeeNo "ADMIN-0001"），其餘（含前一次 mock 產生的額外 admin）全部刪除，
+  // 避免重複執行時 admin 數不斷累積。
+  const seedAdminUsername = process.env.SEED_ADMIN_USERNAME;
+  const keepWhere = seedAdminUsername
+    ? { username: seedAdminUsername }
+    : { employeeNo: "ADMIN-0001" };
+
+  console.log("seed:mock: 開始清理（保留正式 seed admin、刪除其餘員工與全部車輛）…");
   await prisma.vehicle.deleteMany({});
   const deletedEmployees = await prisma.employee.deleteMany({
-    where: { role: { not: "ADMIN" } },
+    where: { NOT: keepWhere },
   });
   console.log(`seed:mock: 已刪除 ${deletedEmployees.count} 名員工、所有車輛`);
 
@@ -123,7 +131,11 @@ async function main() {
     usedEmployeeNos.add(e.employeeNo);
   });
 
-  const createdEmployees: { id: string; role: "ADMIN" | "USER" }[] = [];
+  const createdEmployees: {
+    id: string;
+    role: "ADMIN" | "USER";
+    status: "ACTIVE" | "INACTIVE";
+  }[] = [];
 
   for (let i = 0; i < EMPLOYEE_COUNT; i += 1) {
     const surname = pick(SURNAMES);
@@ -166,10 +178,18 @@ async function main() {
         role: isExtraAdmin ? "ADMIN" : "USER",
       },
     });
-    createdEmployees.push({ id: created.id, role: created.role as "ADMIN" | "USER" });
+    createdEmployees.push({
+      id: created.id,
+      role: created.role as "ADMIN" | "USER",
+      status: created.status as "ACTIVE" | "INACTIVE",
+    });
   }
 
-  const eligibleOwners = createdEmployees.filter((e) => e.role !== "ADMIN");
+  // 只把 ACTIVE 的一般員工列為可指派 owner，與 API 的 assertActiveOwner 不變式一致
+  // （vehicles.ts 對非 ACTIVE owner 會回 400 INVALID_OWNER）。
+  const eligibleOwners = createdEmployees.filter(
+    (e) => e.role !== "ADMIN" && e.status === "ACTIVE",
+  );
   const ownersForVehicles = (() => {
     const withOwner = VEHICLE_COUNT - VEHICLES_WITHOUT_OWNER;
     const slots: Array<string | null> = [];

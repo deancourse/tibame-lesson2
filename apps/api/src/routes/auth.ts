@@ -20,17 +20,22 @@ authRouter.post("/register", (_req, _res) => {
 
 authRouter.post("/login", async (req, res) => {
   const { username, password } = loginSchema.parse(req.body);
+  // 供 auditMiddleware 記錄登入失敗時的帳號（actorId 維持 null）。
+  res.locals.auditUsername = username;
   const employee = await prisma.employee.findUnique({ where: { username } });
   if (!employee) {
+    res.locals.auditMeta = { reason: "INVALID_CREDENTIALS" };
     throw new HttpError(401, "INVALID_CREDENTIALS", "帳號或密碼錯誤");
   }
   const now = new Date();
   if (employee.lockedUntil && employee.lockedUntil > now) {
+    res.locals.auditMeta = { reason: "ACCOUNT_LOCKED" };
     throw new HttpError(401, "ACCOUNT_LOCKED", "帳號已暫時鎖定", {
       unlockAt: employee.lockedUntil.toISOString(),
     });
   }
   if (employee.status === "INACTIVE") {
+    res.locals.auditMeta = { reason: "ACCOUNT_INACTIVE" };
     throw new HttpError(401, "ACCOUNT_INACTIVE", "帳號已停用");
   }
   const ok = await bcrypt.compare(password, employee.passwordHash);
@@ -42,6 +47,7 @@ authRouter.post("/login", async (req, res) => {
       where: { id: employee.id },
       data: { failedLoginCount: nextCount, lockedUntil },
     });
+    res.locals.auditMeta = { reason: "INVALID_CREDENTIALS" };
     throw new HttpError(401, "INVALID_CREDENTIALS", "帳號或密碼錯誤");
   }
   if (employee.failedLoginCount !== 0 || employee.lockedUntil) {
@@ -54,8 +60,15 @@ authRouter.post("/login", async (req, res) => {
     sub: employee.id,
     role: employee.role,
     employeeId: employee.id,
+    username: employee.username,
   });
   setAuthCookie(res, token);
+  // 登入成功：供 auditMiddleware 記錄操作者快照（auth.login.success）。
+  res.locals.auditActor = {
+    id: employee.id,
+    username: employee.username,
+    role: employee.role,
+  };
   res.json({
     user: {
       id: employee.id,

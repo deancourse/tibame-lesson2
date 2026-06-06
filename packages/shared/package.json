@@ -11,10 +11,6 @@
       "default": "./src/index.ts"
     }
   },
-  "scripts": {
-    "lint": "echo 'no lint'",
-    "test": "echo 'no tests'"
-  },
   "dependencies": {
     "zod": "^3.24.1"
   }

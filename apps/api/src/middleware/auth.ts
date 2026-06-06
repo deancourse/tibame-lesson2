@@ -11,6 +11,7 @@ declare module "express-serve-static-core" {
       id: string;
       role: Role;
       employeeId: string;
+      username: string;
       token: string;
     };
   }
@@ -30,6 +31,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     id: result.payload.sub,
     role: result.payload.role,
     employeeId: result.payload.employeeId,
+    username: result.payload.username,
     token,
   };
   next();

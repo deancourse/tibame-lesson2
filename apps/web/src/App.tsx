@@ -9,6 +9,7 @@ import { LoginPage } from "@/pages/Login";
 import { DashboardPage } from "@/pages/Dashboard";
 import { VehiclesPage } from "@/pages/Vehicles";
 import { EmployeesPage } from "@/pages/Employees";
+import { AuditLogsPage } from "@/pages/AuditLogs";
 
 export function App() {
   const { hydrated, setSession, clearSession, markHydrated } = useAuthStore();
@@ -48,6 +49,14 @@ export function App() {
           element={
             <RequireAdmin>
               <EmployeesPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="audit-logs"
+          element={
+            <RequireAdmin>
+              <AuditLogsPage />
             </RequireAdmin>
           }
         />

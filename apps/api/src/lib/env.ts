@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./loadDotenv.js";
 
 function required(name: string): string {
   const v = process.env[name];
@@ -8,8 +8,8 @@ function required(name: string): string {
 
 export const env = {
   DATABASE_URL: required("DATABASE_URL"),
-  API_PORT: Number(process.env.API_PORT ?? 3000),
-  WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:5173",
+  API_PORT: Number(process.env.API_PORT ?? 8090),
+  WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:3087",
   JWT_SECRET: required("JWT_SECRET"),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? "8h",
   COOKIE_SECRET: required("COOKIE_SECRET"),
